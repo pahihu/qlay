@@ -2,9 +2,9 @@
 
 char *qlayversion(void)
 {
-	return "0.90c Sat Jan 30 22:00:36 1999";
+	return "0.91a Sun May 04 12:42:26 2025";
 }
 char *qlayversion2(void)
 {
-	return "0.90c";
+	return "0.91a";
 }

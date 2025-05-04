@@ -5,8 +5,9 @@
 */
 
 #define STRICT
-#define WIN32_LEAN_AND_MEAN
+// #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <mmreg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -19,6 +20,7 @@
 #include "winmain.h"
 #include "cfg-win.h"
 #include "debug.h"
+#include "snd-win.h"
 
 #define WIN32COL 24
 
@@ -30,7 +32,11 @@
 
 #define qscr_w 512
 #define qscr_h 256
-#define tiles 4		// power of 2
+#define tiles 8		// power of 2
+#define log2tiles 3
+#define MKTILE(x,y)	(((x) << 8) + (y))
+#define TILEX(x)	((x) >> 8)
+#define TILEY(x)	((x) & 255)
 
 static void init_bmpi(void);
 static void init_bmpit(void);
@@ -53,7 +59,7 @@ int mouse_button;
 
 /* locals */
 static char szAppname[] = "QLAY";
-static HWND globalhwnd;
+HWND globalhwnd;
 
 LPBITMAPINFO pbmpi;
 static char bmpibuf[sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD)];
@@ -62,7 +68,9 @@ static char qscr_buf[qscr_w*qscr_h];
 LPBITMAPINFO pbmpit;
 static char bmpitbuf[sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD)];
 static char qscrt_buf[tiles*tiles][qscr_w*qscr_h/(tiles*tiles)];
-static char dirty[tiles][tiles];
+static unsigned char dirty[tiles][tiles];
+static int ndirty;
+static int dtiles[tiles*tiles];
 
 static int win_w, win_h, wino_w, wino_h;
 static HINSTANCE hInstance;
@@ -148,7 +156,12 @@ void make_dirty(void)
 {
 int x,y;
 
-	for(x=0;x<tiles;x++) for(y=0;y<tiles;y++) dirty[x][y]=1;
+	ndirty=0;
+	for(x=0;x<tiles;x++)
+		for(y=0;y<tiles;y++) {
+			dirty[x][y]=1;
+			dtiles[ndirty++]=MKTILE(x,y);
+		}
 }
 
 /* input 0: black, else white */
@@ -265,7 +278,7 @@ void win32_plotp(int x, int y, int c)
 }
 
 /* eight at a time */
-void win32_plotp8(int x, int y, U8 *p)
+void win32_plotp8x(int x, int y, U8 *p)
 {
 int i,tx,ty;
 U8 *d;
@@ -277,11 +290,39 @@ U8 *d;
 	y=(qscr_h-1)-y;
 	tx=x>>7;	// make tiles dependent!!!!
 	ty=y>>6;
-	d=&qscrt_buf[tx+tiles*ty][ (x & 0x7f)+(y & 0x3f)*qscr_w/(tiles) ];
+	d=(U8*)&qscrt_buf[tx+tiles*ty][ (x & 0x7f)+(y & 0x3f)*qscr_w/(tiles) ];
 //	fpr("p %03x %03x  %02x %02x  %02x %02x\n",
 //	 x,y,tx,ty,(x & 0x7f),(y & 0x3f)*qscr_w/(tiles) );
 #endif
 	dirty[tx][ty]=1;
+	for(i=0;i<8;i++) *d++=*p++;
+}
+
+#define XSHIFT	(9-log2tiles)
+#define YSHIFT	(8-log2tiles)
+#define XMASK	((1 << XSHIFT)-1)
+#define YMASK	((1 << YSHIFT)-1)
+
+void win32_plotp8(int x, int y, U8 *p)
+{
+int i,tx,ty;
+U8 *d;
+
+#if WIN32COL == 8
+	d=&qscr_buf[x+y*qscr_w];
+#else
+//	d=&qscr_buf[x+((qscr_h-1)-y)*qscr_w];
+	y=(qscr_h-1)-y;
+	tx=x>>XSHIFT;	// make tiles dependent!!!!
+	ty=y>>YSHIFT;
+	d=(U8*)&qscrt_buf[tx+tiles*ty][ (x & XMASK)+(y & YMASK)*qscr_w/(tiles) ];
+//	fpr("p %03x %03x  %02x %02x  %02x %02x\n",
+//	 x,y,tx,ty,(x & 0x7f),(y & 0x3f)*qscr_w/(tiles) );
+#endif
+	if (0 == dirty[tx][ty]) {
+		dirty[tx][ty]=1;
+		dtiles[ndirty++]=MKTILE(tx,ty);
+	}
 	for(i=0;i<8;i++) *d++=*p++;
 }
 
@@ -315,7 +356,7 @@ BITMAP bm;
 	ReleaseDC(globalhwnd, hdc);
 }
 
-void dump_screen_wt(void)
+void dump_screen_wtx(void)
 {
 HDC hdc,hdcMemory;
 HBITMAP hbmp,hbmpOld;
@@ -334,6 +375,42 @@ BITMAP bm;
 			}
 		}
 	}
+	ndirty=0;
+	ReleaseDC(globalhwnd, hdc);
+}
+
+void dump_screen_wt(void)
+{
+HDC hdc,hdcMemory;
+HBITMAP hbmp,hbmpOld;
+int i,tw,th,thr;
+BITMAP bm;
+
+	if (0 == ndirty)
+		return;
+	hdc = GetDC(globalhwnd);
+
+#if 1
+	for (th=0;th<tiles;th++) {
+		thr=(tiles-1)-th;
+		for (tw=0;tw<tiles;tw++) {
+			if (dirty[tw][thr]) {
+				StretchDIBits(hdc, tw*win_w/tiles, th*win_h/tiles, (win_w+2)/tiles, (win_h+2)/tiles,
+				  0, 0, qscr_w/tiles, qscr_h/tiles, qscrt_buf[tw+thr*tiles], pbmpit, DIB_RGB_COLORS, SRCCOPY);
+				dirty[tw][thr]=0;
+			}
+		}
+	}
+#else
+	for (i = 0; i < ndirty; i++) {
+		th=dtiles[i]&255; thr=(tiles-1)-th;
+		tw=dtiles[i]>>8;
+		StretchDIBits(hdc, tw*win_w/tiles, th*win_h/tiles, (win_w+2)/tiles, (win_h+2)/tiles,
+		  0, 0, qscr_w/tiles, qscr_h/tiles, qscrt_buf[tw+thr*tiles], pbmpit, DIB_RGB_COLORS, SRCCOPY);
+		dirty[tw][thr]=0;
+	}
+#endif
+	ndirty = 0;
 	ReleaseDC(globalhwnd, hdc);
 }
 
@@ -341,6 +418,11 @@ void repaint_screen(void)
 {
 //	dump_screen_w();
 	dump_screen_wt();
+}
+
+void handle_exit(void)
+{
+	SendMessage(globalhwnd, WM_CLOSE, 0, 0L);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -353,6 +435,15 @@ static	HMENU hMenu;
 static	HMENU hMenu_german;
 
 	switch (message) {
+	case MM_WOM_OPEN:
+		snd_set_flags(SND_OPEN);
+		break;
+	case MM_WOM_DONE:
+		snd_set_flags(SND_DONE);
+		break;
+	case MM_WOM_CLOSE:
+		snd_set_flags(SND_CLOSE);
+		break;
 	case WM_CREATE:
 		hMenu = GetMenu(hwnd);
 		hMenu_german = LoadMenu(hInstance, "MENU_GERMAN");
@@ -398,11 +489,11 @@ static	HMENU hMenu_german;
 //		      else
 //		      	 	ReleaseCapture();
 		      {char t[80];
-		      if (!hideMouse)
-			sprintf(t,"QLAYW - %s [Press F12 to show mouse]",qlayversion2());
-		      else
-			sprintf(t,"QLAYW - %s",qlayversion2());
-		      SetWindowText(hwnd, t);
+		      	if (!hideMouse)
+					sprintf(t,"QLAYW - %s [Press F12 to show mouse]",qlayversion2());
+		      	else
+					sprintf(t,"QLAYW - %s",qlayversion2());
+		      	SetWindowText(hwnd, t);
 		      }
 		}
 		//fall through
@@ -582,7 +673,7 @@ extern int argc;
 extern char ** argv;
 #else
 int argc = 0;
-char **argv = { "" };
+char *argv[2] = { "", "" };
 #endif
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR lpszCmdParam, int nCmdShow)
@@ -635,6 +726,10 @@ WNDCLASS wndclass;
 	ShowWindow(hwnd, nCmdShow);
 	UpdateWindow(hwnd);
 
+	if (strlen(lpszCmdParam)) {
+		argc=1;
+		argv[1]=lpszCmdParam;
+	}
 	ql_main1(argc,argv);	/* get options */
 	wincfg_main(hInstance);
 

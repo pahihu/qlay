@@ -11,6 +11,17 @@
 #include "spc-os.h"
 #include "qldisk.h"
 
+#if defined(__CYGWIN32__)
+#define HAVE_FTRUNCATE 1
+#elif defined(__BORLANDC__) || defined(_MSC_VER)
+#include <io.h>
+#define HAVE_FTRUNCATE 1
+# if defined(__BORLANDC__)
+#  define ftruncate chsize
+# elif defined(_MSC_VER)
+#  define ftruncate _chsize_s
+# endif
+#endif
 
 #define PD 0
 
@@ -146,7 +157,7 @@ int fnum2fname(int drivenr, int fnum, char *fname)
 	fnum--;
 	if (fnum*64<MAXDLEN) {
 		strcpy(fname,winfn[drivenr-1]);
-		strncat(fname,&dir[drivenr-1][fnum*64+16],36);
+		strncat(fname,(const char*)&dir[drivenr-1][fnum*64+16],36);
 if(0)		fpr("FN %s ",fname);
 		return 0;
 	}
@@ -432,7 +443,7 @@ if(p)		fpr("File %s too short: %d %d\n",filename,pos,offset);
 	fseek(nfa,0L,2);
 	pos=ftell(nfa);
 	if (pos>offset) {
-#ifdef __CYGWIN32__
+#if defined(HAVE_FTRUNCATE)
 /* Apparently truncate not in library B19.1 */
 		ftruncate(fileno(nfa),offset);	/* not tested yet */
 #else
@@ -465,7 +476,7 @@ if(p)	fpr("\nRN: D%d, F%d, S%d, B%d, C%d ",drivenr,filenum,sectnum,bytenum,bytec
 	for(i=0;i<fnlen;i++) sector[i]=get_byte(i+0x18200);
 	sector[fnlen]='\0';
 	fnum2dirname(drivenr,newname);
-	strncat(newname,sector,36);
+	strncat(newname,(const char*)sector,36);
 	/* check if already exist */
 	nfa=fopen(newname,"rb");
 	if (nfa!=NULL) {

@@ -7,7 +7,7 @@
 extern void do_scrn(A32 a, U16 l);
 extern void do_scrmode(int mode);
 extern void start_speaker(void);
-extern void do_speaker(void);
+extern void do_speaker(int pitch,int gradx);
 extern void stop_speaker(void);
 extern void do_mouse(int lastmx, int lastmy, int button);
 extern void get_mouse_state(int *x, int *y, int *b);
@@ -28,4 +28,11 @@ extern int epr(char* fmt, ...);
 extern void my_kbd_handler(int);
 extern void win_stop_emulation(void);
 extern void handle_reset(void);
+extern void handle_exit(void);
+extern int argc;
+extern char *argv[];
+#if !defined(HWND)
+#define HWND	void*
+extern HWND globalhwnd;
+#endif
 #endif

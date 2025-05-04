@@ -15,6 +15,7 @@ v0.90	990129 random number from command line
 
 #include "qlayt.h"
 #include "qlvers.h"
+#include "getopt.h"
 
 /* globals, declared here */
 char	ifname[LINESIZE],lstline[LINESIZE],qdosname[QDOSSIZE],dosname[DOSSIZE];
@@ -78,7 +79,7 @@ void usage(void)
 	exit(1);
 }
 
-void main(int argc,char **argv)
+int main(int argc,char **argv)
 {
 int	opt;
 int	cmd=0,ncmd=0,dz=0;
@@ -275,5 +276,5 @@ U32	datasize=0; /* kch! */
 	default:
 		usage();
 	}
-	exit(0);
+	return 0;
 }

@@ -39,7 +39,11 @@ rdzidlic@cip.informatik.uni-erlangen.de
 
 #include <stdio.h>
 #include <stdlib.h>
+#if defined(_WIN32)
+#include <io.h>
+#else
 #include <unistd.h>        /* lseek read write */
+#endif
 #include <fcntl.h>
 
 #ifdef THINK_C
@@ -218,7 +222,9 @@ void print_map(void);
 #define	 GET_GOOD()   wrd(b0+22)
 #define  GET_SPCL()   wrd(b0+32)
 
+#if !defined(min)
 #define min(a,b) (a<b ? a : b)
+#endif
 
 /* byte order conversion */
 U32 wrd(U8 *wp)
@@ -674,6 +680,7 @@ void write_cluster(char *p, int num)
 {
     int sect;
     U32 i;
+    int r;
 
     for(i=0;i<allocblock;i++){
        sect=num*allocblock+i;
@@ -1009,7 +1016,7 @@ int flp_main(char *opt, char *drv)
 	}
 #else
 
-    fd=open(argv[1],O_RDWR);
+    fd=open(drv /*argv[1]*/,O_RDWR);
 
     if (fd<0)
 	{perror("could not open image");

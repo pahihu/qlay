@@ -1,0 +1,20 @@
+# qltools
+cc = wcl
+
+OBJS = qltools.obj msdos.obj wildargv.obj
+
+CFLAGS =-c -ml -I. -bt=dos -ox
+LDFLAGS = -ml -l=dos
+
+qltools.exe : $(OBJS)
+	$(CC) $(LDFLAGS) -fe=qltools $(OBJS)
+
+msdos.obj : msdos\msdos.c qltools.h
+	$(CC) -c $(CFLAGS) msdos\msdos.c
+
+qltools.obj : qltools.c qltools.h
+	$(CC) -c $(CFLAGS) qltools.c
+
+wildargv.obj : c:\watcom\wildargv.c
+	$(CC) -c $(CFLAGS) c:\watcom\wildargv.c
+

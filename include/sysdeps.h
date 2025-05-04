@@ -9,6 +9,10 @@
 #include <errno.h>
 #include <assert.h>
 
+#if defined(__MINGW32__)
+#include <intrin.h>
+#endif
+
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -23,7 +27,13 @@
 #endif
 
 #ifdef HAVE_STRINGS_H
-#include <strings.h>
+#if defined(_WIN32) || defined(_WIN64) 
+#  include <string.h>
+#  define strcasecmp _stricmp 
+#  define strncasecmp _strnicmp 
+#else
+#  include <strings.h>
+#endif
 #endif
 #ifdef HAVE_STRING_H
 #include <string.h>

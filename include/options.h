@@ -18,6 +18,7 @@ extern U32 qlay1msec;
 extern int use_debugger;
 extern int opt_use_mouse;
 extern int opt_use_altkey;
+extern int opt_throttle;
 extern int ram_size;
 extern int fake_joystick;
 extern int fakeF1;
@@ -71,7 +72,7 @@ static __inline__ int generic_memcmpy(void *foo, const void *bar, int len)
 	return res;
 }
 
-#if defined(__GNUC_MINOR__)
+#if defined(__GNUC_MINOR__) && !defined(_WIN32)
 
 #ifdef __i386__
 

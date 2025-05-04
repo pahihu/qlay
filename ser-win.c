@@ -165,7 +165,7 @@ fpr("serthr init\n");
 			if (read>0) {
 				rb[read]=0;
 //				fpr("RX: %s\n",rb);
-				ser_rcv_enqueue(1,read,rb);
+				ser_rcv_enqueue(1,read,(unsigned char*)rb);
 			}
 		} else {
 			fpr("error wce\n");

@@ -5,6 +5,21 @@
 */
 
 #include "qlayt.h"
+#include <time.h>
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+int my_random(void)
+{
+	unsigned int r;
+	rand_s(&r);
+	return (int)r;
+}
+#elif defined(__BORLANDC__)
+int my_random(void)
+{
+	return _lrand();
+}
+#endif
 
 #define NOSECTS 255
 #define SECTLEN (14+14+512+26+120)
@@ -286,7 +301,7 @@ int s,b,rand;
 	mdv[0][SOF+2*255]=0xff;	/* not available */
 	/* init sector header: mdv name, random */
 	if (randmdv==-1) {
-		rand=random()&0xffff;
+		rand=my_random()&0xffff;
 	} else {
 		/* convert endian style */
 		rand=((randmdv>>8)&0xff) | ((randmdv<<8)&0xff00);

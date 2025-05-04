@@ -6,6 +6,15 @@
 
 #include "qlayt.h"
 
+#if defined(_WIN32)
+#include <io.h>
+# if defined(_MSC_VER)
+#  define ftruncate _chsize_s
+# elif defined(__BORLANDC__)
+#  define ftruncate chsize
+# endif
+#endif
+
 static void printhead(U8 *head)
 {
 int	slen;
@@ -157,7 +166,11 @@ int	mt,i,n,cleanedup;
 		if (!mt) wpos+=64; else cleanedup++;
 	}
 	if (cleanedup) {
+#if defined(_WIN32)
+		ftruncate(fileno(qldf),wpos);
+#else
 		truncate(dirfname,wpos);
+#endif
 		printf("Cleaned up empty space in directory file %s\n",dirfname);
 	}
 	fclose(qldf);

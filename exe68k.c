@@ -295,8 +295,11 @@ static void handle_busy_wait(void)
 int	i;
 static	A32 ap=0;
 
-	for(i=0;i<opt_busy_wait;i++) get_long(ap+i*4);
-	if (ap>0xb000) ap=0;
+	for(i=0;i<opt_busy_wait;i++) {
+		ap += 4;
+		if (ap>0xb000) ap=0;
+		get_long(ap);
+	}
 }
 
 #if DO_TRACE

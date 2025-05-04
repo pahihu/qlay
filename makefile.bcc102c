@@ -1,0 +1,225 @@
+#
+#	QLAY - Sinclair QL emulator
+#	Copyright Jan Venema 1998
+#	Makefile for Win95
+#
+
+CC        = bcc32c -q
+CPP       = bcc32c -q -E
+CFLAGS1   = -O2
+CFLAGS2   = 
+CFLAGS3   = -D__DOS__ -D__inline__=__inline -DSTATFS_NO_ARGS=2 -DSTATBUF_BAVAIL=f_bfree
+CFLAGS    = $(CFLAGS1) $(CFLAGS2) $(CFLAGS3)
+CFLAGSX   = -D__QLWIN32__ $(CFLAGS1) $(CFLAGS2) $(CFLAGS3)
+LIBRARIES = comdlg32.lib gdi32.lib user32.lib #-lcomdl
+RC        = rc
+RCFLAGS   = -r
+RES       = brc32
+RESFLAGS  =
+INCLUDES  = -Iinclude
+MAP       = #-X"linker -Map qlay.map"
+
+.SUFFIXES: .obj .c .h .m
+
+OBJS = main.obj exe68k.obj qlmem.obj debug.obj qlio.obj qldisk.obj \
+qlvers.obj os.obj keybuf.obj readcpu.obj op68kdefs.obj op68kstbl.obj \
+op68k0.obj op68k1.obj op68k2.obj op68k3.obj op68k4.obj op68k5.obj op68k6.obj op68k7.obj \
+op68k8.obj op68k9.obj op68kA.obj op68kB.obj op68kC.obj op68kD.obj op68kE.obj op68kF.obj \
+winmain.obj spc-win.obj cfg-win.obj ser-win.obj \
+getopt.obj gettimeofday.obj
+
+#       spc-dos.obj \
+#       romjs.obj romjsl1.obj romtk212.obj romnfa.obj
+
+OBJST = qlt-main.obj qlt-mdv.obj qlt-qxl.obj qlt-dir.obj \
+        qlt-flp.obj qlversd.obj \
+        getopt.obj
+
+all: sysconfig.h qlayw.exe qlayt.exe
+
+sysconfig.h: sysconfig.h.win
+	copy sysconfig.h.win sysconfig.h
+
+# $(RES) $(RESFLAGS) qlayw.res qlayw.exe
+# $(CC) $(MAP) $(OBJS) -tW -eqlayw.exe $(LIBRARIES)
+# $(RES) qlayw.rc qlayw.exe
+qlayw.exe: $(OBJS) qlayw.res
+	$(CC) -tW -e$@ $(OBJS) $(LIBRARIES) qlayw.res
+
+qlay.exe: $(OBJS)
+	$(CC) $(OBJS) -o qlay $(LIBRARIES)
+	strip qlay
+	coff2exe qlay
+
+qlayw.res: qlayw.rc
+	$(RC) -IC:/Apps/BCC55/Include -r qlayw.rc
+
+build68k.exe: build68k.obj
+	$(CC) -e$@ build68k.obj
+
+build68k.obj: build68k.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+
+makevers.exe: makevers.obj rev
+	$(CC) -e$@ makevers.obj
+
+makevers.obj: makevers.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+
+gencpu.exe: gencpu.obj readcpud.obj op68kdefs.obj
+	$(CC) -e$@ gencpu.obj readcpud.obj op68kdefs.obj
+
+gencpu.obj: gencpu.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+
+readcpud.obj: readcpu.c	# same source code for dos
+	$(CC) $(INCLUDES) -c $(CFLAGS) -oreadcpud.obj readcpu.c
+
+op68kdefs.obj: op68kdefs.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+
+qlvers.c: makevers.exe
+	makevers rev >qlvers.c
+
+op68kdefs.c: build68k.exe table68k
+	build68k >op68kdefs.c
+op68kstbl.c: gencpu.exe
+	gencpu s >op68kstbl.c
+op68ktbl.c: gencpu.exe
+	gencpu t >op68ktbl.c
+op68ktbl.h: gencpu.exe
+	gencpu h >op68ktbl.h
+
+op68k0.c: gencpu.exe
+	gencpu f 0 >op68k0.c
+op68k1.c: gencpu.exe
+	gencpu f 1 >op68k1.c
+op68k2.c: gencpu.exe
+	gencpu f 2 >op68k2.c
+op68k3.c: gencpu.exe
+	gencpu f 3 >op68k3.c
+op68k4.c: gencpu.exe
+	gencpu f 4 >op68k4.c
+op68k5.c: gencpu.exe
+	gencpu f 5 >op68k5.c
+op68k6.c: gencpu.exe
+	gencpu f 6 >op68k6.c
+op68k7.c: gencpu.exe
+	gencpu f 7 >op68k7.c
+op68k8.c: gencpu.exe
+	gencpu f 8 >op68k8.c
+op68k9.c: gencpu.exe
+	gencpu f 9 >op68k9.c
+op68kA.c: gencpu.exe
+	gencpu f 10 >op68kA.c
+op68kB.c: gencpu.exe
+	gencpu f 11 >op68kB.c
+op68kC.c: gencpu.exe
+	gencpu f 12 >op68kC.c
+op68kD.c: gencpu.exe
+	gencpu f 13 >op68kD.c
+op68kE.c: gencpu.exe
+	gencpu f 14 >op68kE.c
+op68kF.c: gencpu.exe
+	gencpu f 15 >op68kF.c
+
+op68k0.obj: op68k0.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k1.obj: op68k1.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k2.obj: op68k2.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k3.obj: op68k3.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k4.obj: op68k4.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k5.obj: op68k5.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k6.obj: op68k6.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k7.obj: op68k7.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k8.obj: op68k8.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68k9.obj: op68k9.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68kA.obj: op68kA.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68kB.obj: op68kB.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68kC.obj: op68kC.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68kD.obj: op68kD.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68kE.obj: op68kE.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+op68kF.obj: op68kF.c op68ktbl.h
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+
+qlayt.exe: $(OBJST)
+	$(CC) -e$@ $(OBJST)
+
+qlversd.obj: qlvers.c	# same source code for dos
+	$(CC) $(INCLUDES) -c $(CFLAGS) -oqlversd.obj qlvers.c
+
+qlt-main.obj: qlt-main.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+qlt-mdv.obj: qlt-mdv.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+qlt-qxl.obj: qlt-qxl.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+qlt-dir.obj: qlt-dir.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+qlt-flp.obj: qlt-flp.c
+	$(CC) $(INCLUDES) -c $(CFLAGS) $*.c
+
+.m.obj:
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.m
+.c.obj:
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.c
+.c.s:
+	$(CC) $(INCLUDES) -S $(CFLAGSX) $*.c
+.S.obj:
+	$(CC) $(INCLUDES) -c $(CFLAGSX) $*.S
+
+.rc.res:
+	$(RC) $(RCFLAGS) $<
+
+
+# Saves recompiling...
+touch:
+	touch *.obj
+	touch build68k.exe
+	touch cpudefs.c
+	touch gencpu.exe
+	touch op68k*.c
+	touch op68k*.h
+
+clean:
+	-del *.obj
+#	-del qlay.exe
+	-del qlayw.exe
+	-del qlayt.exe
+	-del qlayt
+	-del makevers.exe
+	-del gencpu.exe
+	-del build68k.exe
+	-del op68kdefs.c
+	-del op68k?.c
+	-del op68ktbl.h
+	-del op68kstbl.c
+	-del sysconfig.h
+	-del qlayw.res
+	-del *.il*
+	-del *.map
+	-del *.tds
+
+halfclean:
+	-del *.obj
+
+# dependencies
+op68kstbl.obj: op68ktbl.h
+op68ktbl.obj: op68ktbl.h
+
+# remember this one!
+#	redir -o gcc.log -eo gcc -v ...

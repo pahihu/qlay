@@ -69,7 +69,7 @@ void close_joystick(void)
 	close(js0);
 }
 
-#elif defined(__DOS__)
+#elif defined(__DOS__) && !defined(_WIN32)
 
 static int joystickpresent = 0;
 

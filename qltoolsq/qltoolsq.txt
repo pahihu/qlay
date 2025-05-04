@@ -1,0 +1,59 @@
+
+
+	qltools 2.7q
+
+qltools 2.7q is qltools 2.7 modified for use with QLAY/QLAYW.
+
+Copyright notice and qltools 2.7 manual are in the source
+directory. The source code for qltools is in there as well.
+
+All functions of qltools 2.7 are preserved. One new option
+is added: -q . All files on a QL floppy can be retrieved
+and stored on a PC directory. And a 'qlay.dir' file is created.
+
+
+
+	How to use qltools 2.7q for QLAY?
+
+1. Download the qltoolsq.zip file
+2. Unzip the archive in a directory.
+3. Place a QL floppy in PC a: drive (or b: drive).
+4. Open a DOS box and type command:
+     qltools a: -d
+   This show the files contained on the QL floppy.
+5. Type command:
+     qltools a: -q
+   This copies all files on the QL floppy to PC directory.
+6. Remove floppy from PC a: (or b:) drive
+7. Start your QLAY version
+8. Type inside QLAY:
+     dir win1_
+   If all went well, the files from your floppy are now listed.
+
+
+
+	Tips.
+
+Many QL programs on floppy assume they are on FLP1_. To use such
+programs unmodified, type the following command in QLAY:
+     win_use flp
+
+All next commands are on flp1_. For example:
+     dir flp1_
+
+Or to start a SuperBasic boot program, as on a QL with FLP:
+     lrun flp1_boot
+
+Files from multiple QL floppies can be copied to the same PC
+directory. Files are appended in the 'qlay.dir'.
+
+QLAYT is another QLAY support program. This allows add, delete
+or update of the list of files on your PC that QLAY accesses.
+
+
+
+v2.7q May 19, 1998
+Jan Venema
+
+http://www.inter.nl.net/hcc/A.Jaw.Venema
+A.Jaw.Venema@net.hcc.nl

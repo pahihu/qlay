@@ -5,8 +5,12 @@
 */
 
 #include <sys/timeb.h>
+#include <math.h>
 #include "sysconfig.h"
 #include "sysdeps.h"
+#if defined(_WIN32)
+#include "gettimeofday.h"
+#endif
 
 #include "options.h"
 #include "qlmem.h"
@@ -16,6 +20,20 @@
 #include "qldisk.h"
 #include "qlio.h"
 #include "ser-os.h"
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+int my_random(void)
+{
+	unsigned int r;
+	rand_s(&r);
+	return (int)r;
+}
+#elif defined(__BORLANDC__)
+int my_random(void)
+{
+	return _lrand();
+}
+#endif
 
 //#include "winmain.h"
 
@@ -32,6 +50,7 @@ static void do_50Hz(void);
 static void do_1Hz(void);
 static void do_mdv_motor(void);
 static void do_mouse_xm(void);
+static void do_throttle(void);
 
 /* internal */
 static void wr8049(A32 addr, U8 data);
@@ -51,6 +70,7 @@ static void mdv_select(int drive);
 static U8 rdmouse(A32 a);
 static void wrmouse(A32 a, U8 d);
 static void init_events(void);
+static void init_throttle(int cyc);
 static void eval_next_event(void);
 static int sound_process(int);
 static void do_tx(void);
@@ -86,6 +106,14 @@ static	int	Mavail=0;	/* is the mouse detected, required and available? */
 				/* signal when mouse ints should occur */
 
 U32	e50,emdv,emouse,esound,etx;	/* events */
+U32 ethrottle;
+static int us72;
+static double usThrottle;
+#define MIN_THRO	32
+#define MIN_USTHRO 1000
+static int THROTTLE_CYCLE = MIN_THRO;
+// #define MDV_GAP_INT	31
+#define MDV_GAP_INT	5
 
 static	int	ZXmode;		/* ZX8302 mode; sertx,net,mdv: bit4,5 of 18002 */
 static	int	ZXbaud;		/* ZX8302 sertx baudrate */
@@ -928,9 +956,23 @@ int	i;
 /*fpr("Read %s ",mdvname);*/
 }
 
+void init_throttle(int cyc)
+{
+	THROTTLE_CYCLE=cyc;
+	usThrottle=1000.0*(((double)THROTTLE_CYCLE)/qlay1msec);
+	us72=qlay1msec/13;
+}
+
 void init_events()
 {
 	e50=emdv=emouse=esound=etx=0;
+	ethrottle=0;
+	THROTTLE_CYCLE=MIN_THRO;
+	do {
+		init_throttle(THROTTLE_CYCLE<<1);
+	} while (usThrottle<MIN_USTHRO);
+	if (opt_throttle)
+		fpr("Throttling...%d cycle ~ %gus\n", THROTTLE_CYCLE, usThrottle);
 }
 
 void eval_next_event()
@@ -948,7 +990,9 @@ U32	d50,dmdv,dmouse,dsound,dtx;
 	cycle_next_event=cycle+QMIN(QMIN(QMIN(dsound,dtx),d50),QMIN(dmouse,dmdv));
 */
 U32	dc,dmin;
-	dmin=e50-cycle;
+	dmin=opt_throttle ? ethrottle-cycle : e50-cycle;
+	dc=e50-cycle;
+	if (dc<dmin) dmin=dc;
 	dc=emdv-cycle;
 	if (dc<dmin) dmin=dc;
 	dc=emouse-cycle;
@@ -966,6 +1010,13 @@ void do_next_event()
 int	e;
 
 	e=0;
+	if (cycle==ethrottle) {
+		if (opt_throttle) {
+			do_throttle();
+			ethrottle=cycle+THROTTLE_CYCLE;
+			e++;
+		}
+	}
 	if (cycle==e50) { /* 50Hz interrupt, 20 msec */
 		do_50Hz();
 /*		do_1Hz();*/
@@ -977,7 +1028,7 @@ int	e;
 		if (regs.intmask < 2 ) {
 			do_mdv_motor();
 		}
-		emdv=cycle+31*qlay1msec;
+		emdv=cycle+MDV_GAP_INT*qlay1msec;
 		e++;
 		if(0)fpr("IM ");
 	}
@@ -1014,8 +1065,8 @@ static int sound_process(int initbeep)
 {
 /* these are the SuperBasic equivalent values */
 static int dur,pitch1,pitch2,gradx,grady,wrap,random,fuzzy;
-static int dur_decr,cpitch,cpstep,cpdelay,us72;
-int rv;
+static int dur_decr,cpitch,cpstep,cpdelay;
+int rv,snd;
 
 	if (!IPCbeeping) return -1;
 	if (initbeep) {
@@ -1049,31 +1100,47 @@ if(0)		fpr("\nBP: D:%d P1:%d P2:%d GX:%d GY:%d W:%d R:%d F:%d \n",\
 		eval_next_event();
 		return 1; /* return value is actually don't care now */
 	}
-	do_speaker();	/* blip */
+	if (produce_sound)
+		do_speaker(cpitch,gradx);	/* blip */
 	if (dur_decr) {
 		if (dur<=0) {
 			IPCbeeping=0;
-			stop_speaker();
+			if (produce_sound)
+				stop_speaker();
 			return -1;
 		}
 	}
-	rv=cpitch*us72;
-	dur-=cpitch;
-	cpdelay-=cpitch;
+	snd=cpitch;
+	if (random>7){
+		snd+=my_random()%(random-7);
+	}
+	/* TBD: was cpitch */
+	/* pitch: 0-255=>1-256 */
+	rv=snd*us72;
+	dur-=snd;
+	cpdelay-=snd;
 	if (cpdelay<=0) { cpdelay=gradx; cpitch+=cpstep; }
 	if (cpstep>0) {
 		if (cpitch>pitch2) {
+			if (wrap) {
+				cpitch=pitch1;
+				wrap--;
+			}
 			cpitch=pitch2;
 			cpstep=-cpstep;
 			{int a=pitch2;pitch2=pitch1;pitch1=a;}
 		}
 	} else {
 	    if (cpstep<0) {
-		if (cpitch<pitch2) {
-			cpitch=pitch2;
-			cpstep=-cpstep;
-			{int a=pitch2;pitch2=pitch1;pitch1=a;}
-		}
+			if (cpitch<pitch2) {
+				if (wrap) {
+					cpitch=pitch1;
+					wrap--;
+				}
+				cpitch=pitch2;
+				cpstep=-cpstep;
+				{int a=pitch2;pitch2=pitch1;pitch1=a;}
+			}
 	    }
 	}
 	if (rv==0) {
@@ -1119,12 +1186,51 @@ int irq_level()
 	if (REG18021&0x1f) return 2; else return -1;
 }
 
+/* === THROTTLE === */
+
+static long elapsed(struct timeval *tv0)
+{
+   struct timeval tv;
+   unsigned long dt;
+
+   gettimeofday(&tv,NULL);
+   dt = (tv.tv_sec - tv0->tv_sec) * 1000000 + (tv.tv_usec - tv0->tv_usec);
+   *tv0 = tv;
+   return dt;
+}
+
+static unsigned long evt_timeout = 0;
+
+static void do_throttle(void)
+{
+	static __int64 t0 = 0;
+	double t, delta;
+
+	t = (0 == t0) ? (GetCounter(&t0), 0.0) : Elapsed(&t0);
+	if (t < 1.0)
+		return;
+	if (t < usThrottle) {
+		usleep(usThrottle - t);
+	} else
+		evt_timeout++;
+}
+
 static void do_50Hz()
 {
+	static __int64 t0 = 0;
+	double t;
+	
 	specialflags|=SPCFLAG_INT;
 	REG18021|=0x08;
 	/*flash_colors();*/
 	handle_events_50Hz();	/* os specific */
+	t = (0 == t0) ? (GetCounter(&t0), 0.0) : Elapsed(&t0);
+	if (t < 1.0)
+		return;
+	if (!opt_throttle) {
+		qlay1msec *= (20000.0 / (double)t);
+		us72=qlay1msec/13;
+	}
 }
 
 static void do_1Hz(void)

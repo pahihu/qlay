@@ -1,0 +1,19 @@
+# qltools
+cc = wcl386
+
+OBJS = qltools.obj nt.obj wildargv.obj
+CFLAGS = -I. -bt=NT -ox
+LDFLAGS = -l=NT
+
+qlnt.exe : $(OBJS)
+	$(CC) $(LDFLAGS) -fe=qlnt $(OBJS)
+
+nt.obj : nt\nt.c qltools.h
+	$(CC) -c $(CFLAGS) nt\nt.c
+
+qltools.obj : qltools.c qltools.h
+	$(CC) -c $(CFLAGS) qltools.c
+
+wildargv.obj : \watcom\wildargv.c
+	$(CC) -c $(CFLAGS) \watcom\wildargv.c
+

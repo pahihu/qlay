@@ -13,8 +13,11 @@
 #include <stdio.h>
 #include <assert.h>
 #include <signal.h>
+#if defined(HAVE_UNISTD_H)
 #include <unistd.h>
+#endif
 //#include <pc.h>
+#include "gettimeofday.h"
 
 /*
 #include <dpmi.h>
@@ -104,13 +107,14 @@ int target_y, target_x;
 	if (use_debugger) return; /* skip if debug */
 	a=a&0x7fff;
 
-        target_y=a/0x80;
-        target_x=(a&0x7f)<<2;
+	target_y=a/0x80;
+	target_x=(a&0x7f)<<2;
 //	put8dots_f4s(target_x,target_y,w);
 	put8dots_f4f(target_x,target_y,w);
 	return;
 
 //
+#if 0
         target_y=a/0x80+v_offset;
         target_x=((a&0x7f)<<2)+h_offset;
 	if (screen_res>=6) {
@@ -119,13 +123,14 @@ int target_y, target_x;
 	} else {
 		if (opt_new_gfx) {
 			if (colors256) put8dots_f(target_x,target_y,w);
-			else put8dots_f4(target_x,target_y,w);
+			else put8dots_f4(target_x,target_y,w); /* ? */
 		} else {
 			/* compatibility, slow mode */
 			if (colors256) put8dots(target_x,target_y,w);
 			else put8dots_f4s(target_x,target_y,w);
 		}
 	}
+#endif
 }
 
 
@@ -395,7 +400,8 @@ int scancode, newstate, akey;
 			return;
 		}
 		if(keystate[0x03]) { /*csa X*/
-//			specialflags |= SPCFLAG_BRK;
+			cas_key=0x03;
+			specialflags |= SPCFLAG_CAS_KEY;
 			return;
 		}
 		if(keystate[0x18]) { /*csa L*/
@@ -452,6 +458,10 @@ void handle_reset()
 
 void handle_cas_key()
 {
+	if(cas_key==0x03) { /*csa X*/
+		handle_exit();
+		return;
+	}
 
 	if(cas_key==0x1e) { /*csa D*/
 		dump_memory();
@@ -513,7 +523,8 @@ void handle_events_50Hz(void)
 {
 static int c50=0;
 	c50++;
-	if (c50 == 4) { c50=0; repaint_screen(); }	/* 12.5 times a second */
+	// if (c50 == 4) { c50=0; repaint_screen(); }	/* 12.5 times a second */
+	if (c50 == 2) { c50=0; repaint_screen(); }	/* 25 times a second */
 	q_check_message();	/* win32 callback */
 }
 
@@ -550,8 +561,8 @@ int init_graphics(void)
 
 
     fpr("Build: %s\n",qlayversion());
-    fpr("Options: d%d o%d f%d w%d m%d\n",
-    	screen_res,opt_new_gfx,qlay1msec,opt_busy_wait,ram_size);
+    fpr("Options: d%d o%d f%d %sw%d m%d\n",
+    	screen_res,opt_new_gfx,qlay1msec,opt_throttle ? "t " : "",opt_busy_wait,ram_size);
 
     cas_key=0;
 
@@ -684,23 +695,48 @@ void redraw_screen()
 */
 }
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN 1
+#include <windows.h>
+#include "snd-win.h"
+#endif
+
 void start_speaker()
 {
 /* nop */
+	snd_open(globalhwnd);
 }
 
-void do_speaker()
+void do_speaker(int pitch,int gradx)
 {
-static int toggle=0;
+	static int toggle=0;
+	static int ppitch=0,pgradx=0;
+	float freq, durationMS;
 
 	toggle^=0x02;
+#if defined(_WIN32)
+	// fpr("pitch=%d gradx=%d\n",pitch,gradx);
+	if (ppitch==pitch&&pgradx==gradx)
+		return;
+	ppitch=pitch; pgradx=gradx;
+	freq = 11447.0/(10.6+pitch); durationMS = (72.0 * gradx / 1000.0);
+	if (durationMS > 1) {
+		// fpr("do_beep\n");
+		snd_play(freq, durationMS);
+	}
+#else
 	outportb(0x61,(inportb(0x61)&0xfd)|toggle); /* cli/sti needed? */
+#endif
 }
 
 /* kill it in a nice but quiet way ... :=< */
 void stop_speaker()
 {
+#if defined(_WIN32)
+	snd_stop();
+#else
 	outportb(0x61,inportb(0x61)&0xfd); /* cli/sti needed? */
+#endif
 }
 
 int open_log(void)

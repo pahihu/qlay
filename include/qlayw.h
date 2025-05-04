@@ -35,6 +35,7 @@
 #define ID_DELAY	306
 #define ID_CHK_MOUSE	307
 #define ID_CHK_ALTKEY	308
+#define ID_CHK_THROTTLE	358
 
 #define ID_ALTKEY	310
 #define ID_CBX_KBD	313

@@ -21,6 +21,7 @@ int ram_size = -1;
 int use_debugger = 0;
 int opt_use_mouse = 1;
 int opt_use_altkey = 1;
+int opt_throttle = 0;
 int produce_sound = 1;
 int fake_joystick = 0;
 T_KEYB opt_keyb = KEYB_US;
@@ -87,7 +88,7 @@ static void parse_cmdline(int argc, char **argv)
 int c;
 
 	while(((c = getopt(argc, argv,
-		"Al:L:Df:gd:hxF:ac:SJm:M0:1:2:3:4:5:6:7:8:r:H:op:w:")) != EOF)) {
+		"Al:L:Df:gd:htxF:ac:SJm:M0:1:2:3:4:5:6:7:8:r:H:op:w:")) != EOF)) {
 
 	switch(c) {
 	case 'h':
@@ -204,6 +205,9 @@ if(0)				{int l;
 			screen_res = 2;
 		}
 		break;
+	case 't':
+		opt_throttle=1;
+		break;
 	case 'x':
 	    	iatrace=1;
 		break;
@@ -244,7 +248,11 @@ int new_argc;
 #if defined(__unix) && !defined(__DOS__)
 	strcat(file, ".qlayrc");
 #else
-	strcat(file, "qlay.rc");
+	if (argc) {
+		strcat(file, argv[1]);
+		argc--;
+	}
+	else strcat(file, "qlay.rc");
 #endif
 
 	f = fopen(file,"rb");
@@ -365,17 +373,25 @@ int main(int argc, char **argv)
 }
 #endif /* not __QLWIN32__ */
 
+#if defined(__BORLANDC__) || defined(_MSC_VER)
+#define PATH_MAX	_MAX_PATH
+#endif
+
 void write_options(void)
 {
-FILE	*f;
-int	i;
-char	*kb;
+	FILE	*f;
+	int	i;
+	char	*kb;
+	char 	*rcfile[PATH_MAX];
 
 #define QLRCFILE "qlay.rc"
 
-	f=fopen(QLRCFILE,"w");	/* txt */
+	if (argc) strcpy(rcfile,argv[1]);
+	else strcpy(rcfile,QLRCFILE);
+
+	f=fopen(rcfile,"w");	/* txt */
 	if (f==NULL) {
-		fpr("cannot open qlay.rc for writing\n");
+		fpr("cannot open %s for writing\n",rcfile);
 		return;
 	}
 	fprintf(f,"-r %s\n",romfile);
@@ -404,8 +420,9 @@ char	*kb;
 	if (use_debugger) fprintf(f,"-D\n");
 	if (!opt_use_mouse) fprintf(f,"-M\n");
 	if (!opt_use_altkey) fprintf(f,"-A\n");
+	if (opt_throttle) fprintf(f,"-t\n");
 	if (iatrace) fprintf(f,"-x\n");
 	if (!opt_new_gfx) fprintf(f,"-o\n");
 	fclose(f);
-	fpr("Wrote options in %s\n",QLRCFILE);
+	fpr("Wrote options in %s\n",rcfile);
 }

@@ -118,6 +118,10 @@ int mso[]={1,0,2,3,-1,4,-1,-1,-1,5};
 	opt=0;
 	if (opt_use_altkey==0) opt=1;
 	CheckDlgButton(hWnd, ID_CHK_ALTKEY, opt);
+	opt=0;
+	if (opt_throttle==1) opt=1;
+	CheckDlgButton(hWnd, ID_CHK_THROTTLE, opt);
+
 
 	/* text edit boxes */
 	SetDlgItemInt(hWnd, ID_SPEED, qlay1msec, FALSE);
@@ -163,6 +167,7 @@ int writefile,opt;
 		case ID_OK:
 			opt_use_altkey = 1 - IsDlgButtonChecked(hWnd, ID_CHK_ALTKEY);
 			opt_use_mouse = 1 - IsDlgButtonChecked(hWnd, ID_CHK_MOUSE);
+			opt_throttle = IsDlgButtonChecked(hWnd, ID_CHK_THROTTLE);
 
 			GetDlgItemText(hWnd, ID_ROM_BOOT, romfile, 256);
 			GetDlgItemText(hWnd, ID_ROM_NFA, opt_cartfn[0], 256);

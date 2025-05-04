@@ -62,15 +62,15 @@
 #define SCODE_N			49
 #define SCODE_M			50
 
-#define SCODE_ESCAPE		1
+#define SCODE_ESCAPE	1
 #define SCODE_ENTER		28
-#define SCODE_RCONTROL		97
-#define SCODE_LCONTROL		29
+#define SCODE_RCONTROL	97
+#define SCODE_LCONTROL	29
 #define SCODE_RALT		100
 #define SCODE_LALT		56
 #define SCODE_SPACE		57
-#define SCODE_LSHIFT		42
-#define SCODE_RSHIFT		54
+#define SCODE_LSHIFT	42
+#define SCODE_RSHIFT	54
 
 #define SCODE_F1		59
 #define SCODE_F2		60
